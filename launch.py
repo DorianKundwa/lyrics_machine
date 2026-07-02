@@ -1,16 +1,22 @@
 """
-Croonify Launcher
-=================
-Starts the backend API server (which also serves the frontend SPA),
-waits for it to be ready, then opens the browser automatically.
+LyricForge x Croonify — Unified Launcher
+=========================================
+Automatically finds a free port, starts the server, waits for it
+to be ready, then opens the browser.
 
 Usage:
-  python launch.py              # default port 8000
-  python launch.py --port 9000  # custom port
-  python launch.py --no-browser # skip auto-open
+  python launch.py                  # auto-finds free port starting at 8000
+  python launch.py --port 9000      # preferred port (still auto-skips if busy)
+  python launch.py --no-browser     # skip auto-open
+  python launch.py --verbose        # show full server logs
+  python launch.py --mode croonify  # start Croonify API only (no video render)
+  python launch.py --mode lyricforge # start LyricForge app (default)
 """
 
+from __future__ import annotations
+
 import argparse
+import json
 import os
 import signal
 import socket
@@ -22,40 +28,60 @@ import urllib.request
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-ROOT    = Path(__file__).parent.resolve()
-SRC     = str(ROOT / "src")
-SERVE   = str(ROOT / "serve.py")
+ROOT = Path(__file__).parent.resolve()
+SRC  = ROOT / "src"          # croonify package lives here
 
-# ── Console helpers (no emoji — Windows cp1252 safe) ──────────────────────────
-LINE  = "-" * 50
-DLINE = "=" * 50
+# ── Console helpers (ASCII-safe for Windows cp1252) ───────────────────────────
+DLINE = "=" * 56
+LINE  = "-" * 56
 
-def banner():
+def banner(port: int, mode: str) -> None:
     print(DLINE)
-    print("  Croonify  --  AI Lyrics Sync Engine")
-    print("  Neural lyrics-to-audio alignment")
+    print("  LyricForge  x  Croonify AI")
+    print(f"  Mode: {mode}   |   Port: {port}")
     print(DLINE)
     print()
 
-def ok(msg):  print(f"  [OK]  {msg}")
-def info(msg): print(f"  [>>] {msg}")
-def warn(msg): print(f"  [!!] {msg}", file=sys.stderr)
-def fail(msg): print(f"  [XX] {msg}", file=sys.stderr)
+def ok(msg):   print(f"  [OK]  {msg}")
+def info(msg): print(f"  [>>]  {msg}")
+def warn(msg): print(f"  [!!]  {msg}", file=sys.stderr)
+def fail(msg): print(f"  [XX]  {msg}", file=sys.stderr)
 
 
 # ── Port utilities ─────────────────────────────────────────────────────────────
 
-def port_in_use(port: int) -> bool:
+def _is_free(port: int) -> bool:
+    """
+    Return True if nothing is listening on `port`.
+    Uses connect_ex which correctly detects any listening socket,
+    regardless of SO_REUSEADDR.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
-        return s.connect_ex(("127.0.0.1", port)) == 0
+        s.settimeout(0.3)
+        result = s.connect_ex(("127.0.0.1", port))
+        # connect_ex returns 0 when connection succeeds (port is in use)
+        return result != 0
 
 
-def wait_for_server(port: int, timeout: float = 30.0) -> bool:
-    """Poll /health until the server responds or timeout is hit."""
-    url = f"http://localhost:{port}/health"
+def find_free_port(preferred: int = 8000, max_tries: int = 20) -> int:
+    """
+    Return the first free port starting at `preferred`.
+    Tries preferred, preferred+1, ... preferred+max_tries.
+    Raises RuntimeError if none found.
+    """
+    for port in range(preferred, preferred + max_tries):
+        if _is_free(port):
+            return port
+    raise RuntimeError(
+        f"No free port found in range {preferred}–{preferred + max_tries - 1}. "
+        "Kill stale processes or use --port to specify a different range."
+    )
+
+
+def wait_for_server(url: str, timeout: float = 40.0) -> bool:
+    """Poll `url` until HTTP 200 or timeout."""
     deadline = time.time() + timeout
-    attempt = 0
+    attempt  = 0
     while time.time() < deadline:
         try:
             with urllib.request.urlopen(url, timeout=2) as r:
@@ -71,36 +97,31 @@ def wait_for_server(port: int, timeout: float = 30.0) -> bool:
     return False
 
 
-def open_browser(url: str):
-    """Open the browser cross-platform."""
+def open_browser(url: str) -> None:
     import webbrowser
     webbrowser.open(url)
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Dependency checks ─────────────────────────────────────────────────────────
 
-def main():
-    parser = argparse.ArgumentParser(description="Croonify launcher")
-    parser.add_argument("--port",       type=int, default=8000, help="Port (default: 8000)")
-    parser.add_argument("--host",       default="0.0.0.0",      help="Bind host")
-    parser.add_argument("--no-browser", action="store_true",     help="Don't open the browser")
-    parser.add_argument("--verbose",    action="store_true",     help="Show server logs")
-    args = parser.parse_args()
-
-    banner()
-
-    # ── Check Python can find our packages ────────────────────────────────────
+def check_deps(mode: str) -> None:
     info("Checking dependencies...")
 
+    # Ensure user site-packages visible
     import site as _site
     user_site = _site.getusersitepackages()
-    # Inject paths so imports below work
-    for p in [SRC, user_site]:
+    for p in [str(SRC), user_site]:
         if p not in sys.path:
             sys.path.insert(0, p)
 
+    required = ["fastapi", "uvicorn"]
+    if mode == "croonify":
+        required += ["librosa"]
+    else:
+        required += ["PIL"]   # Pillow for LyricForge thumbnails
+
     missing = []
-    for pkg in ("fastapi", "uvicorn", "librosa"):
+    for pkg in required:
         try:
             __import__(pkg)
         except ImportError:
@@ -111,100 +132,158 @@ def main():
         fail("Run:  pip install -r requirements.txt")
         sys.exit(1)
 
-    ok("All dependencies found")
+    ok("All core dependencies found")
 
-    # ── Check if port is already busy ─────────────────────────────────────────
-    if port_in_use(args.port):
-        warn(f"Port {args.port} is already in use.")
+    # Soft-warn about Croonify neural deps
+    neural_ok = True
+    for pkg in ("whisperx", "librosa"):
         try:
-            with urllib.request.urlopen(
-                f"http://localhost:{args.port}/health", timeout=2
-            ) as r:
-                import json
-                data = json.loads(r.read())
-                if data.get("version") == "0.1.0":
-                    ok(f"Croonify is already running on port {args.port}!")
-                    url = f"http://localhost:{args.port}"
-                    if not args.no_browser:
-                        info(f"Opening {url}")
-                        open_browser(url)
-                    print()
-                    info(f"  Web UI : {url}/")
-                    info(f"  API    : {url}/docs")
-                    info(f"  Health : {url}/health")
-                    return
-        except Exception:
-            pass
-        fail(f"Port {args.port} is busy with another service. Use --port <N>.")
+            __import__(pkg)
+        except ImportError:
+            if pkg == "whisperx":
+                warn("whisperx not found — alignment will use Viterbi/heuristic fallback")
+            neural_ok = False
+
+    if neural_ok:
+        ok("Neural alignment (whisperx + librosa) available")
+
+    print()
+
+
+# ── Server command builders ───────────────────────────────────────────────────
+
+def _build_env() -> dict:
+    import site as _site
+    env  = os.environ.copy()
+    usp  = _site.getusersitepackages()
+    existing = env.get("PYTHONPATH", "")
+    parts = [str(ROOT), str(SRC), usp] + ([existing] if existing else [])
+    env["PYTHONPATH"]       = os.pathsep.join(p for p in parts if p)
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
+def _server_cmd(mode: str, host: str, port: int, log_level: str) -> list[str]:
+    """Build the python -c '...' command that starts the appropriate app."""
+    src_str  = str(SRC).replace("\\", "/")
+    root_str = str(ROOT).replace("\\", "/")
+
+    if mode == "croonify":
+        app_import = "from croonify.api.server import app"
+    else:
+        # LyricForge app.py lives at ROOT level
+        app_import = "import sys; sys.path.insert(0, r'{root}'); import app as _app; app = _app.app".format(
+            root=root_str
+        )
+
+    code = f"""
+import sys, os, site
+sys.path.insert(0, r'{src_str}')
+sys.path.insert(0, r'{root_str}')
+usp = site.getusersitepackages()
+if usp not in sys.path:
+    sys.path.insert(2, usp)
+import uvicorn
+{app_import}
+uvicorn.run(app, host='{host}', port={port}, log_level='{log_level}')
+"""
+    return [sys.executable, "-c", code]
+
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="LyricForge x Croonify launcher — auto-finds a free port",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--port", type=int, default=8000,
+        help="Preferred starting port (auto-increments if busy). Default: 8000"
+    )
+    parser.add_argument("--host",       default="0.0.0.0",       help="Bind host")
+    parser.add_argument("--no-browser", action="store_true",      help="Skip auto browser open")
+    parser.add_argument("--verbose",    action="store_true",      help="Show full server logs")
+    parser.add_argument(
+        "--mode", choices=["lyricforge", "croonify"], default="lyricforge",
+        help="lyricforge = video generator (default) | croonify = alignment API only"
+    )
+    args = parser.parse_args()
+
+    # ── Auto-find a free port ─────────────────────────────────────────────────
+    try:
+        port = find_free_port(preferred=args.port)
+    except RuntimeError as e:
+        fail(str(e))
         sys.exit(1)
 
-    # ── Build PYTHONPATH for the subprocess ────────────────────────────────────
-    env = os.environ.copy()
-    existing_pypath = env.get("PYTHONPATH", "")
-    parts = [SRC, user_site] + ([existing_pypath] if existing_pypath else [])
-    env["PYTHONPATH"] = os.pathsep.join(parts)
-    # Force UTF-8 output in the child process
-    env["PYTHONIOENCODING"] = "utf-8"
+    if port != args.port:
+        warn(f"Port {args.port} is busy — using port {port} instead.")
 
-    # ── Start the server subprocess ────────────────────────────────────────────
-    info(f"Starting Croonify server on http://localhost:{args.port} ...")
+    banner(port, args.mode)
+    check_deps(args.mode)
 
+    # ── Build subprocess env + command ────────────────────────────────────────
+    env       = _build_env()
     log_level = "info" if args.verbose else "warning"
-    cmd = [
-        sys.executable, "-c",
-        f"""
-import sys, os, site
-sys.path.insert(0, r'{SRC}')
-sys.path.insert(1, site.getusersitepackages())
-import uvicorn
-from croonify.api.server import app
-uvicorn.run(app, host='{args.host}', port={args.port}, log_level='{log_level}')
-"""
-    ]
+    cmd       = _server_cmd(args.mode, args.host, port, log_level)
 
-    # Use CREATE_NEW_PROCESS_GROUP on Windows so Ctrl+C is handled properly
-    kwargs = {}
+    kwargs: dict = {}
     if sys.platform == "win32":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
 
     stdout = None if args.verbose else subprocess.DEVNULL
     stderr = None if args.verbose else subprocess.DEVNULL
 
-    proc = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=stderr, **kwargs)
+    info(f"Starting server on http://localhost:{port} ...")
+    proc = subprocess.Popen(
+        cmd, env=env, cwd=str(ROOT),
+        stdout=stdout, stderr=stderr,
+        **kwargs,
+    )
 
-    # ── Wait for the server to be ready ───────────────────────────────────────
-    ready = wait_for_server(args.port, timeout=30)
-    print()  # newline after the dots
+    # ── Choose the health-check URL based on mode ─────────────────────────────
+    if args.mode == "croonify":
+        health_url = f"http://localhost:{port}/health"
+    else:
+        health_url = f"http://localhost:{port}/"   # LyricForge serves / directly
+
+    ready = wait_for_server(health_url, timeout=40)
+    print()   # newline after animated dots
 
     if not ready:
-        fail("Server did not start within 30 seconds.")
+        fail("Server did not start within 40 seconds.")
         proc.terminate()
         sys.exit(1)
 
     ok(f"Server is ready!  (PID {proc.pid})")
     print()
 
-    url = f"http://localhost:{args.port}"
+    base_url = f"http://localhost:{port}"
     print(LINE)
-    print(f"  Web UI   : {url}/")
-    print(f"  API docs : {url}/docs")
-    print(f"  Health   : {url}/health")
+    if args.mode == "lyricforge":
+        print(f"  Web UI   : {base_url}/")
+        print(f"  Editor   : {base_url}/editor")
+        print(f"  API docs : {base_url}/docs")
+    else:
+        print(f"  Web UI   : {base_url}/")
+        print(f"  API docs : {base_url}/docs")
+        print(f"  Health   : {base_url}/health")
     print(LINE)
     print()
 
-    # ── Open browser ──────────────────────────────────────────────────────────
     if not args.no_browser:
-        info(f"Opening browser -> {url}")
-        open_browser(url)
+        info(f"Opening browser -> {base_url}")
+        open_browser(base_url)
 
     print("  Press Ctrl+C to stop the server.")
     print()
 
-    # ── Keep alive — forward Ctrl+C to child ──────────────────────────────────
+    # ── Forward Ctrl+C cleanly to child process ───────────────────────────────
     try:
         proc.wait()
     except KeyboardInterrupt:
-        print("\n  Stopping Croonify server...")
+        print("\n  Stopping server...")
         if sys.platform == "win32":
             proc.send_signal(signal.CTRL_BREAK_EVENT)
         else:
