@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Croonify — AI-powered lyrics synchronization engine. Align song lyrics to audio with neural precision, word-level timestamps, and karaoke-ready JSON output." />
+  <meta name="keywords" content="lyrics sync, AI lyrics, karaoke, word alignment, WhisperX, wav2vec2, music technology" />
+  <meta name="author" content="Croonify" />
+  <meta property="og:title" content="Croonify — AI Lyrics Sync Engine" />
+  <meta property="og:description" content="Sync lyrics to music with neural precision. Word-level timestamps, vocal separation, karaoke-ready output." />
+  <meta property="og:type" content="website" />
+  <title>Croonify — AI Lyrics Sync Engine</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ░░░ FLOATING PARTICLES ░░░ -->
+  <div class="particles" aria-hidden="true">
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+    <span class="particle"></span>
+  </div>
+
+  <!-- ░░░ NAVBAR ░░░ -->
+  <header class="navbar" role="banner">
+    <nav class="navbar__inner" aria-label="Main navigation">
+      <a href="#" class="navbar__logo" aria-label="Croonify home">
+        <span class="logo__icon" aria-hidden="true">♪</span>
+        <span class="logo__text">Croonify</span>
+      </a>
+      <span class="navbar__tagline" aria-label="Tagline">AI Lyrics Synchronization</span>
+    </nav>
+  </header>
+
+  <!-- ░░░ MAIN ░░░ -->
+  <main id="main-content" role="main">
+
+    <!-- HERO -->
+    <section class="hero" aria-labelledby="hero-heading">
+      <h1 id="hero-heading" class="hero__heading">
+        Sync Lyrics to Music<br />
+        <span class="gradient-text">With Neural Precision</span>
+      </h1>
+      <p class="hero__subtitle">
+        Word-level timestamps · Vocal separation · Karaoke-ready JSON output<br />
+        Powered by WhisperX + wav2vec2 alignment pipelines
+      </p>
+      <div class="hero__badges" aria-label="Technology badges">
+        <span class="tech-badge">WhisperX</span>
+        <span class="tech-badge">wav2vec2</span>
+        <span class="tech-badge">Viterbi</span>
+        <span class="tech-badge">Demucs</span>
+      </div>
+    </section>
+
+    <!-- MAIN CARD -->
+    <section class="main-card glass-card" aria-label="Sync configuration">
+
+      <!-- STEP 1: UPLOAD AUDIO -->
+      <div class="step-section" id="step-upload">
+        <div class="step-header">
+          <span class="step-number" aria-hidden="true">01</span>
+          <div>
+            <h2 class="step-title">Upload Audio</h2>
+            <p class="step-desc">Drag &amp; drop or click to select your audio file</p>
+          </div>
+        </div>
+
+        <div
+          id="drop-zone"
+          class="drop-zone"
+          role="button"
+          tabindex="0"
+          aria-label="Upload audio file — drag and drop or press Enter to browse"
+          aria-describedby="drop-zone-hint"
+        >
+          <input
+            type="file"
+            id="audio-file-input"
+            accept=".mp3,.wav,.flac,.m4a,.ogg,audio/*"
+            aria-hidden="true"
+            tabindex="-1"
+          />
+
+          <!-- Waveform SVG icon -->
+          <svg class="drop-zone__icon" viewBox="0 0 80 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="0"  y="20" width="6" height="8"  rx="3" fill="currentColor" opacity="0.4"/>
+            <rect x="9"  y="14" width="6" height="20" rx="3" fill="currentColor" opacity="0.6"/>
+            <rect x="18" y="4"  width="6" height="40" rx="3" fill="currentColor"/>
+            <rect x="27" y="10" width="6" height="28" rx="3" fill="currentColor" opacity="0.8"/>
+            <rect x="36" y="0"  width="6" height="48" rx="3" fill="currentColor"/>
+            <rect x="45" y="10" width="6" height="28" rx="3" fill="currentColor" opacity="0.8"/>
+            <rect x="54" y="4"  width="6" height="40" rx="3" fill="currentColor"/>
+            <rect x="63" y="14" width="6" height="20" rx="3" fill="currentColor" opacity="0.6"/>
+            <rect x="72" y="20" width="6" height="8"  rx="3" fill="currentColor" opacity="0.4"/>
+          </svg>
+
+          <p class="drop-zone__label">Drop your audio here</p>
+          <p class="drop-zone__sub" id="drop-zone-hint">MP3 · WAV · FLAC · M4A · OGG</p>
+
+          <div class="drop-zone__file-info" id="file-info" aria-live="polite" hidden>
+            <span class="file-icon" aria-hidden="true">🎵</span>
+            <span id="file-name" class="file-name"></span>
+            <span id="file-size" class="file-size"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: LYRICS -->
+      <div class="step-section" id="step-lyrics">
+        <div class="step-header">
+          <span class="step-number" aria-hidden="true">02</span>
+          <div>
+            <h2 class="step-title">Paste Lyrics</h2>
+            <p class="step-desc">Enter the song lyrics — one line per verse line</p>
+          </div>
+        </div>
+
+        <div class="lyrics-wrapper">
+          <textarea
+            id="lyrics-input"
+            class="lyrics-textarea"
+            rows="10"
+            placeholder="Paste your lyrics here…&#10;&#10;Example:&#10;Cause I'm leaving on a jet plane&#10;Don't know when I'll be back again&#10;Oh babe, I hate to go"
+            aria-label="Song lyrics input"
+            aria-describedby="lyrics-counter"
+            spellcheck="false"
+          ></textarea>
+          <div class="lyrics-meta" id="lyrics-counter" aria-live="polite">
+            <span id="line-count">0 lines</span>
+            <span id="char-count">0 chars</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: CONFIGURE -->
+      <div class="step-section" id="step-configure">
+        <div class="step-header">
+          <span class="step-number" aria-hidden="true">03</span>
+          <div>
+            <h2 class="step-title">Configure</h2>
+            <p class="step-desc">Adjust alignment parameters</p>
+          </div>
+        </div>
+
+        <div class="config-row">
+          <!-- Language -->
+          <div class="config-item">
+            <label for="language-select" class="config-label">Language</label>
+            <div class="select-wrapper">
+              <select id="language-select" class="config-select" aria-label="Select audio language">
+                <option value="auto">🌐 Auto-detect</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="fr">🇫🇷 French</option>
+                <option value="de">🇩🇪 German</option>
+                <option value="pt">🇵🇹 Portuguese</option>
+                <option value="it">🇮🇹 Italian</option>
+                <option value="ja">🇯🇵 Japanese</option>
+                <option value="ko">🇰🇷 Korean</option>
+                <option value="zh">🇨🇳 Chinese</option>
+                <option value="ar">🇸🇦 Arabic</option>
+                <option value="ru">🇷🇺 Russian</option>
+                <option value="nl">🇳🇱 Dutch</option>
+                <option value="pl">🇵🇱 Polish</option>
+                <option value="tr">🇹🇷 Turkish</option>
+                <option value="sv">🇸🇪 Swedish</option>
+                <option value="hi">🇮🇳 Hindi</option>
+                <option value="uk">🇺🇦 Ukrainian</option>
+                <option value="ro">🇷🇴 Romanian</option>
+                <option value="cs">🇨🇿 Czech</option>
+                <option value="hu">🇭🇺 Hungarian</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Aligner toggle -->
+          <div class="config-item">
+            <label class="config-label" id="aligner-label">Aligner</label>
+            <div class="toggle-group" role="group" aria-labelledby="aligner-label">
+              <button
+                id="aligner-whisperx"
+                class="toggle-btn active"
+                aria-pressed="true"
+                aria-label="Use WhisperX aligner"
+                data-value="whisperx"
+              >WhisperX</button>
+              <button
+                id="aligner-viterbi"
+                class="toggle-btn"
+                aria-pressed="false"
+                aria-label="Use Viterbi aligner"
+                data-value="viterbi"
+              >Viterbi</button>
+            </div>
+          </div>
+
+          <!-- Vocal Separation -->
+          <div class="config-item">
+            <label class="config-label" for="vocal-sep-toggle">Vocal Separation</label>
+            <label class="switch" aria-label="Enable vocal separation using Demucs">
+              <input type="checkbox" id="vocal-sep-toggle" role="switch" aria-checked="false" />
+              <span class="switch__track" aria-hidden="true">
+                <span class="switch__thumb"></span>
+              </span>
+              <span class="switch__label">Demucs</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SYNC BUTTON -->
+      <div class="sync-btn-wrapper">
+        <button
+          id="sync-btn"
+          class="sync-btn"
+          aria-label="Start lyrics synchronization"
+          aria-describedby="sync-btn-hint"
+          disabled
+        >
+          <span class="sync-btn__pulse" aria-hidden="true"></span>
+          <span class="sync-btn__icon" aria-hidden="true">⚡</span>
+          <span class="sync-btn__text">Sync Now</span>
+        </button>
+        <p id="sync-btn-hint" class="sync-hint">Upload audio and paste lyrics to enable</p>
+      </div>
+
+    </section><!-- /main-card -->
+
+
+    <!-- ░░░ JOB STATUS PANEL ░░░ -->
+    <section
+      id="job-status-panel"
+      class="status-panel glass-card"
+      aria-live="polite"
+      aria-atomic="false"
+      aria-label="Job status"
+      hidden
+    >
+      <div class="status-panel__header">
+        <div class="spinner" id="status-spinner" aria-hidden="true">
+          <div class="spinner__ring"></div>
+        </div>
+        <div>
+          <h2 class="status-panel__title">Processing</h2>
+          <span id="status-badge" class="status-badge status-badge--queued" role="status">Queued</span>
+        </div>
+      </div>
+
+      <div class="progress-wrapper" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Alignment progress" id="progress-bar-wrapper">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+
+      <p class="status-message" id="status-message" aria-live="polite">Waiting for job to start…</p>
+    </section>
+
+
+    <!-- ░░░ RESULTS PANEL ░░░ -->
+    <section
+      id="results-panel"
+      class="results-panel glass-card"
+      aria-label="Synchronization results"
+      hidden
+    >
+      <div class="results-header">
+        <h2 class="results-title">
+          <span class="results-title__icon" aria-hidden="true">✓</span>
+          Sync Complete
+        </h2>
+        <div class="results-actions">
+          <button id="btn-download" class="action-btn action-btn--primary" aria-label="Download results as JSON">
+            📥 Download JSON
+          </button>
+          <button id="btn-copy" class="action-btn" aria-label="Copy JSON to clipboard">
+            📋 Copy JSON
+          </button>
+          <button id="btn-new" class="action-btn" aria-label="Start a new synchronization">
+            🔄 Start New
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats-row" id="stats-row" role="list" aria-label="Result statistics">
+        <div class="stat-badge" role="listitem">
+          <span class="stat-badge__label">Words</span>
+          <span class="stat-badge__value" id="stat-words">—</span>
+        </div>
+        <div class="stat-badge" role="listitem">
+          <span class="stat-badge__label">Lines</span>
+          <span class="stat-badge__value" id="stat-lines">—</span>
+        </div>
+        <div class="stat-badge" role="listitem">
+          <span class="stat-badge__label">Avg Confidence</span>
+          <span class="stat-badge__value" id="stat-confidence">—</span>
+        </div>
+        <div class="stat-badge" role="listitem">
+          <span class="stat-badge__label">Duration</span>
+          <span class="stat-badge__value" id="stat-duration">—</span>
+        </div>
+      </div>
+
+      <!-- Word confidence visualization -->
+      <div class="section-block">
+        <h3 class="section-block__title">Word Confidence</h3>
+        <div class="word-confidence" id="word-confidence" role="list" aria-label="Words colored by alignment confidence"></div>
+      </div>
+
+      <!-- Lines preview -->
+      <div class="section-block">
+        <h3 class="section-block__title">Line Timings</h3>
+        <div class="lines-list" id="lines-list" role="list" aria-label="Synchronized lyric lines"></div>
+      </div>
+
+      <!-- JSON viewer -->
+      <div class="section-block">
+        <h3 class="section-block__title">JSON Output</h3>
+        <pre
+          id="json-output"
+          class="json-viewer"
+          tabindex="0"
+          role="region"
+          aria-label="JSON synchronization output"
+        ></pre>
+      </div>
+
+    </section><!-- /results-panel -->
+
+
+    <!-- ░░░ ERROR PANEL ░░░ -->
+    <section
+      id="error-panel"
+      class="error-panel glass-card"
+      aria-live="assertive"
+      aria-label="Error"
+      hidden
+    >
+      <div class="error-icon" aria-hidden="true">⚠</div>
+      <h2 class="error-title">Synchronization Failed</h2>
+      <p class="error-message" id="error-message">An unexpected error occurred. Please try again.</p>
+      <button id="btn-retry" class="action-btn action-btn--primary" aria-label="Retry synchronization">
+        ↺ Retry
+      </button>
+    </section>
+
+  </main><!-- /main -->
+
+  <!-- ░░░ TOAST ░░░ -->
+  <div
+    id="toast"
+    class="toast"
+    role="alert"
+    aria-live="polite"
+    aria-atomic="true"
+    hidden
+  ></div>
+
+  <!-- ░░░ FOOTER ░░░ -->
+  <footer class="footer" role="contentinfo">
+    <p class="footer__text">
+      Powered by <span class="footer__highlight">Whisper + wav2vec2</span>
+      &nbsp;•&nbsp; Built with <span class="footer__heart" aria-label="love">❤</span>
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

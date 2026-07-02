@@ -1,0 +1,29 @@
+alignment:
+  primary: whisperx
+  fallback: viterbi
+  model: small
+  language: auto
+  device: cpu
+
+vocal_separation:
+  enabled: true
+  model: htdemucs
+  fallback_to_original: true
+
+prosody:
+  vowel_stretch_threshold: 0.7
+  min_silence_ms: 80
+  boundary_snap_ms: 20
+  rms_extend_ratio: 0.15
+
+line_segmentation:
+  max_words: 8
+  max_duration_s: 4.0
+  min_gap_s: 0.25
+  beat_snap: false
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  max_file_size_mb: 50
+  job_ttl_s: 3600

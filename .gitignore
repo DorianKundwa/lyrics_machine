@@ -1,0 +1,95 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+.installed.cfg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# PyTest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Croonify runtime / temp files
+tmp/
+temp/
+*.tmp
+croonify_audio_*
+croonify_result_*
+
+# Model cache (large, downloaded at runtime)
+# Whisper models (~244MB+) — downloaded to ~/.cache/whisper automatically
+# Demucs models — downloaded to ~/.cache/torch/hub automatically
+# wav2vec2 models — downloaded to ~/.cache/huggingface automatically
+
+# Large audio files (keep only fixtures)
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.ogg
+*.aac
+!tests/fixtures/*.mp3
+!tests/fixtures/*.wav
+
+# Output JSON results
+output/
+results/
+*.result.json
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+logs/
+
+# Secrets / tokens
+.env.local
+.env.production
+secrets.yaml
+hf_token.txt
+
+# Node (if any frontend tooling is added later)
+node_modules/
+npm-debug.log*
