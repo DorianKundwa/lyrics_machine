@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lyric Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #04060c;
+    --surface: #0b0e1a;
+    --card: #131722;
+    --border: #1e2433;
+    --text: #e8eaf0;
+    --muted: #8b95a5;
+    --primary: #6366f1;
+    --accent: #ff3c64;
+    --accent2: #7c3aed;
+    --success: #10b981;
+    --gold: #f59e0b;
+    --radius: 12px;
+  }
+  body {
+    margin: 0; padding: 20px; font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; gap: 20px; height: 100vh; box-sizing: border-box; overflow: hidden;
+  }
+
+  /* Left column: Video preview */
+  .col-left {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 15px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px;
+  }
+  .video-container {
+    position: relative;
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    background: #000; border-radius: 8px; overflow: hidden;
+  }
+  video { max-width: 100%; max-height: 100%; width: 100%; object-fit: contain; }
+
+  /* Interactive overlay layer */
+  #videoOverlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; overflow: hidden;
+  }
+  .overlay-text {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    cursor: move;
+    color: white; font-weight: bold;
+    text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    text-align: center; white-space: pre-wrap;
+    padding: 8px; border: 2px dashed transparent;
+    user-select: none;
+  }
+  .overlay-text:hover { border-color: rgba(255,255,255,0.5); }
+  .overlay-text.dragging { border-color: var(--accent2); cursor: grabbing; }
+  
+  /* Right column: Editor */
+  .col-right {
+    flex: 1.5; display: flex; flex-direction: column; gap: 15px;
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* Toolbar */
+  .le-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 22px; border-bottom: 1px solid var(--border); background: var(--surface);
+  }
+  .le-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.1rem; }
+  .le-toolbar { display: flex; gap: 8px; align-items: center; }
+  .le-btn {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); cursor: pointer; font-family: 'DM Sans', sans-serif;
+    font-weight: 600; font-size: .85rem; transition: .2s;
+  }
+  .le-btn:hover:not(:disabled) { background: var(--border); }
+  .le-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .le-btn--primary { border-color: var(--accent2); color: var(--accent2); }
+  .le-btn--primary:hover:not(:disabled) { background: #7c3aed22; }
+  .le-btn--accent { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; color: #fff; }
+  .le-status { font-size: .8rem; color: var(--muted); min-width: 90px; text-align: center; }
+  .le-status--ok { color: var(--success); }
+  .le-status--err { color: var(--accent); }
+  .le-status--pending { color: var(--gold); }
+
+  /* Timeline */
+  .le-timeline-wrap { width: 100%; background: #0b0e1a; border-bottom: 1px solid var(--border); height: 120px; overflow-x: auto; overflow-y: hidden; position: relative; }
+  .le-timeline-wrap canvas { display: block; }
+  .le-timeline-hint { text-align: center; font-size: .7rem; color: var(--muted); padding: 6px; background: var(--surface); border-bottom: 1px solid var(--border); }
+
+  /* Table */
+  .le-table-wrap { flex: 1; overflow-y: auto; overflow-x: auto; }
+  .le-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .le-th { background: var(--surface); color: var(--muted); font-weight: 600; padding: 10px; text-align: left; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+  .le-td { padding: 8px 10px; border-bottom: 1px solid #1e243322; }
+  .le-row:hover { background: #13172260; }
+  .le-row--sel { background: #7c3aed18; }
+  .le-row--sel td { border-left: 2px solid var(--accent2); }
+  .le-idx { color: var(--muted); text-align: center; width: 30px; }
+  .le-time { color: var(--gold); font-family: monospace; cursor: pointer; }
+  .le-time:hover { color: #fcd34d; }
+  .le-text { max-width: 280px; word-break: break-word; }
+  .le-yoff { color: var(--accent2); font-family: monospace; }
+  .le-inline-input { background: var(--bg); border: 1px solid var(--accent2); color: var(--text); padding: 4px; width: 100%; font-family: inherit; }
+
+  /* Rerender panel */
+  .le-rerender-panel { padding: 15px; border-top: 1px solid var(--border); background: var(--surface); display: none; }
+  .le-progress-track { height: 6px; background: var(--border); border-radius: 9px; margin-bottom: 8px; }
+  .le-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0%; transition: .3s; }
+  .le-rerender-step { font-size: .85rem; color: var(--muted); }
+  .btn-dl { display: inline-block; padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); color: var(--text); text-decoration: none; border-radius: 8px; font-size: .85rem; font-weight: 600; margin-top: 10px; }
+  .btn-dl:hover { background: var(--border); }
+</style>
+</head>
+<body>
+
+  <!-- LEFT: Preview -->
+  <div class="col-left">
+    <div class="le-title">▶ Preview</div>
+    <div class="video-container">
+      <video id="previewVideo" muted controls></video>
+      <audio id="previewAudio"></audio>
+      <div id="videoOverlay"></div>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--muted); text-align: center;">
+      Tip: Drag the text on the video to move it directly. Middle-click timeline to pan.
+    </div>
+  </div>
+
+  <!-- RIGHT: Editor -->
+  <div class="col-right">
+    <div class="le-header">
+      <div class="le-title">✏️ Lyric Editor</div>
+      <div class="le-toolbar">
+        <button id="leUndo" class="le-btn" disabled>↩ Undo</button>
+        <button id="leRedo" class="le-btn" disabled>↪ Redo</button>
+        <button id="leReset" class="le-btn">🔄 Reset</button>
+        <span id="leAutoSaveStatus" class="le-status"></span>
+        <button id="leSave" class="le-btn le-btn--primary">💾 Save</button>
+        <button id="leRerender" class="le-btn le-btn--accent">🎬 Re-render</button>
+      </div>
+    </div>
+
+    <div id="leTimelineWrap" class="le-timeline-wrap"><canvas id="leTimeline"></canvas></div>
+
+    <!-- Color options bar -->
+    <div id="leColorBar" style="display:flex; gap:16px; align-items:center; padding:10px 22px; border-bottom:1px solid var(--border); background:var(--surface); flex-wrap:wrap;">
+      <span style="color:var(--muted); font-weight:600; font-size:.72rem; letter-spacing:1.2px; text-transform:uppercase; flex-shrink:0;">Colors:</span>
+      <label style="display:flex; align-items:center; gap:7px; color:var(--muted); font-size:.8rem; cursor:pointer;">
+        <input type="color" id="leActiveColor" value="#FFFFFF"
+          style="width:34px; height:26px; border:1px solid var(--border); border-radius:5px; cursor:pointer; padding:2px; background:var(--card);">
+        🟡 Active
+      </label>
+      <label style="display:flex; align-items:center; gap:7px; color:var(--muted); font-size:.8rem; cursor:pointer;">
+        <input type="color" id="leUpcomingColor" value="#FF0000"
+          style="width:34px; height:26px; border:1px solid var(--border); border-radius:5px; cursor:pointer; padding:2px; background:var(--card);">
+        ⚪ Upcoming
+      </label>
+      <label style="display:flex; align-items:center; gap:7px; color:var(--muted); font-size:.8rem; cursor:pointer;">
+        <input type="color" id="leSungColor" value="#FFFFFF"
+          style="width:34px; height:26px; border:1px solid var(--border); border-radius:5px; cursor:pointer; padding:2px; background:var(--card);">
+        🟢 Sung
+      </label>
+      <span style="font-size:.72rem; color:var(--muted); margin-left:auto; font-style:italic;">Changes auto-save · applied on Re-render</span>
+    </div>
+
+    <div class="le-timeline-hint">Drag segment to move · Drag edges to resize · Drag ↕ handle for Y-offset · Scroll to zoom</div>
+
+    <div class="le-table-wrap" id="leTable"></div>
+
+    <div id="leRerenderPanel" class="le-rerender-panel">
+      <div style="font-weight:700; margin-bottom:8px;">Re-rendering corrected video…</div>
+      <div class="le-progress-track"><div id="leRerenderBar" class="le-progress-fill"></div></div>
+      <div id="leRerenderStep" class="le-rerender-step">Starting…</div>
+      <a id="leRerenderDl" class="btn-dl" href="#" download style="display:none">⬇ Download Corrected Video</a>
+    </div>
+  </div>
+
+<script src="/static/lyric_editor.js"></script>
+<script src="/static/lyric_editor_table.js"></script>
+<script src="/static/lyric_editor_timeline.js"></script>
+<script src="/static/lyric_editor_actions.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('job_id');
+    if (!jobId) {
+      alert("No job_id provided.");
+      return;
+    }
+
+    // Load instrumental video and full audio
+    const vid = document.getElementById('previewVideo');
+    const aud = document.getElementById('previewAudio');
+    const overlay = document.getElementById('videoOverlay');
+    vid.src = `/api/download/${jobId}/instrumental`;
+    aud.src = `/api/alignment_audio/${jobId}`;
+
+    // Slave audio to video
+    vid.addEventListener('play', () => aud.play().catch(e=>{}));
+    vid.addEventListener('pause', () => aud.pause());
+    vid.addEventListener('seeking', () => aud.currentTime = vid.currentTime);
+    vid.addEventListener('seeked', () => aud.currentTime = vid.currentTime);
+    vid.addEventListener('ratechange', () => aud.playbackRate = vid.playbackRate);
+
+    // Seek video when selecting a row
+    LE.onSelect(i => {
+      const seg = LE.segments[i];
+      if (seg && !vid.paused) vid.currentTime = seg.start;
+      else if (seg) { vid.currentTime = seg.start; vid.play().catch(e=>{}); }
+      renderOverlay();
+    });
+
+    // Update overlay continuously during playback
+    vid.addEventListener('timeupdate', renderOverlay);
+    LE.onChange(renderOverlay);
+
+    // Overlay dragging logic
+    let isDragging = false;
+    let dragStartX = 0, dragStartY = 0;
+    let origXOff = 0, origYOff = 0;
+    let activeSegObj = null;
+
+    overlay.addEventListener('mousedown', (e) => {
+      if (!e.target.classList.contains('overlay-text')) return;
+      isDragging = true;
+      activeSegObj = e.target.segRef;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      origXOff = activeSegObj.x_offset || 0;
+      origYOff = activeSegObj.y_offset || 0;
+      e.target.classList.add('dragging');
+      
+      // Auto-select in timeline/table
+      const idx = LE.segments.indexOf(activeSegObj);
+      if (idx !== -1) LE.select(idx);
+      LE.pushUndo();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging || !activeSegObj) return;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      
+      // We assume video height ~1080px for ASS generator scale, but DOM might be 500px height.
+      // Easiest is mapping px to px, but we should scale relative to DOM video container height.
+      // Wait, ASS margins are just pixel values on a 1920x1080 canvas.
+      const videoRect = vid.getBoundingClientRect();
+      // Calculate scale factor: 1080 / current DOM height
+      const scale = 1080 / videoRect.height;
+      
+      activeSegObj.x_offset = Math.round(origXOff + (dx * scale));
+      activeSegObj.y_offset = Math.round(origYOff - (dy * scale)); // ASS y_offset is positive=UP
+      
+      LE.notify();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        activeSegObj = null;
+        if (typeof LE_Actions !== 'undefined') LE_Actions.scheduleAutoSave();
+        renderOverlay();
+      }
+    });
+
+    function renderOverlay() {
+      if (isDragging) return; // let mousemove handle DOM update
+      const t = vid.currentTime;
+      const activeSegs = LE.segments.filter(s => t >= s.start && t <= s.end);
+      
+      overlay.innerHTML = '';
+      const videoRect = vid.getBoundingClientRect();
+      const scale = videoRect.height / 1080;
+
+      activeSegs.forEach(seg => {
+        const el = document.createElement('div');
+        el.className = 'overlay-text';
+        el.textContent = seg.text;
+        
+        // Font size approx scaling
+        const fs = (LE.fontSize || 72) * scale;
+        el.style.fontSize = fs + 'px';
+        el.style.fontFamily = LE.fontName || 'Arial';
+        
+        // Position
+        const xOffDOM = (seg.x_offset || 0) * scale;
+        const yOffDOM = (seg.y_offset || 0) * scale;
+        
+        // ASS y_offset > 0 means move UP from center. DOM top 50% translates -50%.
+        el.style.transform = `translate(calc(-50% + ${xOffDOM}px), calc(-50% - ${yOffDOM}px))`;
+        el.segRef = seg;
+        
+        overlay.appendChild(el);
+      });
+    }
+
+    // Init editor
+    LE_Actions.initEditor(jobId);
+  });
+</script>
+</body>
+</html>

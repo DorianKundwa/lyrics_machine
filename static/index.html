@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LyricForge — Lyrics Video Maker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:       #080a10;
+    --surface:  #0e1018;
+    --card:     #131722;
+    --border:   #1e2433;
+    --accent:   #ff3c64;
+    --accent2:  #7c3aed;
+    --gold:     #f59e0b;
+    --text:     #e8eaf0;
+    --muted:    #6b7280;
+    --success:  #10b981;
+    --radius:   16px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glows ── */
+  .glow-red  { position:fixed; width:600px; height:600px; border-radius:50%; background:radial-gradient(circle,#ff3c6415 0%,transparent 70%); top:-200px; left:-100px; pointer-events:none; z-index:0; }
+  .glow-purple { position:fixed; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,#7c3aed12 0%,transparent 70%); bottom:100px; right:-150px; pointer-events:none; z-index:0; }
+
+  /* ── Layout ── */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+    animation: fadeUp .7s ease both;
+  }
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    padding: 6px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    color: #fff;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 30%, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    margin-top: 14px;
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+
+  /* ── Section labels ── */
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .section-label .num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--border);
+    display: grid; place-items: center;
+    font-size: .75rem;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Metadata row ── */
+  .meta-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+    animation: fadeUp .7s .1s ease both;
+  }
+  .field-group { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: .8rem; color: var(--muted); font-weight: 500; }
+  input[type="text"] {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .95rem;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+  input[type="text"]:focus { border-color: var(--accent2); }
+
+  /* ── Upload grid ── */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+    animation: fadeUp .7s .18s ease both;
+  }
+  .upload-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+
+  /* ── Drop zone ── */
+  .drop-zone {
+    position: relative;
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .25s, background .25s, transform .15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    min-height: 160px;
+    justify-content: center;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--accent2);
+    background: #16192a;
+    transform: translateY(-2px);
+  }
+  .drop-zone.filled {
+    border-color: var(--success);
+    border-style: solid;
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .dz-icon {
+    font-size: 2rem;
+    line-height: 1;
+    filter: grayscale(0.4);
+  }
+  .dz-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .95rem;
+    color: var(--text);
+  }
+  .dz-hint { font-size: .75rem; color: var(--muted); }
+  .dz-filename {
+    font-size: .78rem;
+    color: var(--success);
+    font-weight: 500;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dz-badge {
+    position: absolute;
+    top: -8px; right: -8px;
+    background: var(--success);
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    display: none;
+    place-items: center;
+    font-size: 13px;
+  }
+  .drop-zone.filled .dz-badge { display: grid; }
+
+  /* ── Optional pill ── */
+  .optional-pill {
+    display: inline-block;
+    font-size: 10px;
+    background: var(--border);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 2px 7px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  /* ── Process button ── */
+  .btn-process {
+    display: block;
+    width: 100%;
+    margin-top: 32px;
+    padding: 18px 32px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: opacity .2s, transform .15s, box-shadow .2s;
+    box-shadow: 0 4px 30px #ff3c6430;
+    animation: fadeUp .7s .3s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-process::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg,rgba(255,255,255,.1) 0%,transparent 60%);
+  }
+  .btn-process:hover { opacity: .9; transform: translateY(-2px); box-shadow: 0 8px 40px #ff3c6450; }
+  .btn-process:active { transform: translateY(0); }
+  .btn-process:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+  /* ── Progress panel ── */
+  .progress-panel {
+    display: none;
+    margin-top: 40px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    animation: fadeUp .5s ease both;
+  }
+  .progress-panel.visible { display: block; }
+  .progress-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    flex-shrink: 0;
+  }
+  .progress-bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width .4s ease;
+    width: 0%;
+  }
+  .progress-step {
+    font-size: .85rem;
+    color: var(--muted);
+    min-height: 20px;
+  }
+
+  /* ── Results panel ── */
+  .results-panel {
+    display: none;
+    margin-top: 40px;
+    animation: fadeUp .5s ease both;
+  }
+  .results-panel.visible { display: block; }
+  .results-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    text-align: center;
+    transition: border-color .2s, transform .2s;
+  }
+  .result-card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+  .result-icon { font-size: 2.2rem; }
+  .result-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: .9rem;
+    color: var(--text);
+  }
+  .result-meta { font-size: .75rem; color: var(--muted); }
+
+  .btn-dl {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 20px;
+    border-radius: 8px;
+    background: var(--border);
+    color: var(--text);
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: none; cursor: pointer;
+    transition: background .2s, transform .15s;
+  }
+  .btn-dl:hover { background: #2a2f42; transform: translateY(-1px); }
+
+  /* ── Error banner ── */
+  .error-banner {
+    display: none;
+    margin-top: 20px;
+    background: #2a0d14;
+    border: 1px solid #ff3c6440;
+    border-radius: 12px;
+    padding: 18px 20px;
+    color: #ff8099;
+    font-size: .875rem;
+    white-space: pre-wrap;
+    font-family: monospace;
+  }
+  .error-banner.visible { display: block; }
+
+  /* ── LRC hint ── */
+  .lrc-hint {
+    margin-top: 12px;
+    background: #0f1626;
+    border: 1px solid #1e2433;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: .78rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .lrc-hint code {
+    font-family: 'Courier New', monospace;
+    color: var(--gold);
+    background: #1a1400;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(24px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .upload-grid, .upload-grid.three, .meta-row, .results-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* No inline editor CSS anymore */
+
+</style>
+</head>
+<body>
+
+<div class="glow-red"></div>
+<div class="glow-purple"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-badge">🎵 LyricForge</div>
+    <h1>Turn Any Song Into<br>a Lyrics Video</h1>
+    <p class="subtitle">Upload your audio, lyrics, and artwork — we'll render a synced lyrics video, clean instrumental, and YouTube thumbnail automatically.</p>
+  </header>
+
+  <!-- Form -->
+  <form id="mainForm">
+
+    <!-- Step 1: Metadata -->
+    <div class="section-label"><span class="num">1</span> Song info</div>
+    <div class="meta-row">
+      <div class="field-group">
+        <label for="title">Song Title</label>
+        <input type="text" id="title" name="title" placeholder="e.g. Midnight Rain">
+      </div>
+      <div class="field-group">
+        <label for="artist">Artist / Band</label>
+        <input type="text" id="artist" name="artist" placeholder="e.g. Taylor Swift">
+      </div>
+    </div>
+
+    <!-- Step 2: Audio files -->
+    <div class="section-label"><span class="num">2</span> Audio files</div>
+    <div class="upload-grid" style="animation-delay:.15s">
+
+      <div class="drop-zone" id="dz-audio">
+        <input type="file" id="audio" name="audio" accept="audio/*,video/*" required>
+        <div class="dz-badge">✓</div>
+        <div class="dz-icon">🎧</div>
+        <div class="dz-label">Main Audio</div>
+        <div class="dz-hint">MP3, WAV, M4A, OGG…</div>
+        <div class="dz-filename" id="fn-audio"></div>
+      </div>
+
+      <div class="drop-zone" id="dz-outro">
+        <input type="file" id="outro" name="outro" accept="audio/*">
+        <div class="dz-badge">✓</div>
+        <div class="dz-icon">🎼</div>
+        <div class="dz-label">Outro Audio <span class="optional-pill">optional</span></div>
+        <div class="dz-hint">Appended after main audio</div>
+        <div class="dz-filename" id="fn-outro"></div>
+      </div>
+
+    </div>
+
+    <!-- Step 3: Visuals -->
+    <div class="section-label" style="margin-top:28px"><span class="num">3</span> Visuals & lyrics</div>
+    <div class="upload-grid three">
+
+      <div class="drop-zone" id="dz-bg">
+        <input type="file" id="background" name="background" accept="image/*">
+        <div class="dz-badge">✓</div>
+        <div class="dz-icon">🖼</div>
+        <div class="dz-label">Background Image <span class="optional-pill">optional</span></div>
+        <div class="dz-hint">JPG, PNG, WEBP — any size</div>
+        <div class="dz-filename" id="fn-bg"></div>
+      </div>
+
+      <div class="drop-zone" id="dz-lyrics" style="padding: 16px 20px; display:flex; flex-direction:column; justify-content:flex-start;">
+        <div style="display:flex; gap:16px; margin-bottom:12px; z-index: 2;">
+          <label style="cursor:pointer; color:var(--text); font-size:13px; display:flex; align-items:center; gap:4px;">
+            <input type="radio" name="lyrics_mode" value="file" checked onchange="toggleLyricsMode()"> File
+          </label>
+          <label style="cursor:pointer; color:var(--text); font-size:13px; display:flex; align-items:center; gap:4px;">
+            <input type="radio" name="lyrics_mode" value="text" onchange="toggleLyricsMode()"> Type
+          </label>
+        </div>
+        
+        <div id="lyrics-file-ui" style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; position:relative; flex-grow:1; justify-content:center;">
+          <input type="file" id="lyrics" name="lyrics" accept=".lrc,.txt,.srt" style="position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%;">
+          <div class="dz-badge" id="badge-lyrics">✓</div>
+          <div class="dz-icon">📝</div>
+          <div class="dz-label">Lyrics File</div>
+          <div class="dz-hint">.lrc (timed) or .txt</div>
+          <div class="dz-filename" id="fn-lyrics"></div>
+        </div>
+
+        <div id="lyrics-text-ui" style="display:none; width:100%; height:100%; flex-grow:1; z-index: 2;">
+          <textarea id="lyrics_text" name="lyrics_text" style="width:100%; height:100%; min-height:90px; background:var(--bg); border:1px solid var(--border); color:var(--text); padding:10px; border-radius:8px; resize:none; font-family:'DM Sans', sans-serif; font-size:13px;" placeholder="Type or paste lyrics here..."></textarea>
+        </div>
+      </div>
+
+      <div class="drop-zone" style="border-style:solid;background:#0b0d15;cursor:default;pointer-events:none;opacity:.55">
+        <div class="dz-icon">🖥</div>
+        <div class="dz-label">1080p Output</div>
+        <div class="dz-hint">1920×1080 H.264 MP4<br>YouTube-ready</div>
+      </div>
+
+    </div>
+
+    <!-- Step 4: Configuration -->
+    <div class="section-label" style="margin-top:28px"><span class="num">4</span> Configuration</div>
+    <div class="meta-row" style="grid-template-columns: 1fr 1fr; margin-bottom: 16px;">
+      <div class="field-group">
+        <label for="font_name">Font</label>
+        <select id="font_name" name="font_name" style="background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:12px 16px; outline:none; font-family:'DM Sans', sans-serif;">
+          <option value="Arial">Arial</option>
+          <option value="Edo">Edo</option>
+          <option value="Impact">Impact</option>
+          <option value="Times New Roman">Times New Roman</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label for="font_size">Font Size</label>
+        <input type="number" id="font_size" name="font_size" value="72" min="10" max="150" style="background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:12px 16px; outline:none; font-family:'DM Sans', sans-serif;">
+      </div>
+      <div class="field-group">
+        <label for="bg_color">Background Color (if no image)</label>
+        <input type="color" id="bg_color" name="bg_color" value="#000000" style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:4px 8px; height:45px; width:100%; cursor:pointer;">
+      </div>
+      <div class="field-group">
+        <label for="stem_engine">Stem Separation Engine</label>
+        <select id="stem_engine" name="stem_engine" style="background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); padding:12px 16px; outline:none; font-family:'DM Sans', sans-serif;">
+          <option value="demucs">Demucs (High Quality)</option>
+          <option value="ffmpeg">FFmpeg (Basic Mid/Side)</option>
+          <option value="none">None (Use original)</option>
+        </select>
+      </div>
+      <div class="field-group" style="grid-column: span 2; display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+        <input type="checkbox" id="word_highlight" name="word_highlight" checked style="width: 20px; height: 20px; accent-color: var(--primary); cursor: pointer;">
+        <label for="word_highlight" style="margin-bottom: 0; cursor: pointer;">Enable Word-by-Word Karaoke Highlighting</label>
+      </div>
+    </div>
+
+    <!-- Step 5: Lyric Colors -->
+    <div class="section-label" style="margin-top:28px"><span class="num">5</span> Lyric Colors</div>
+    <div class="meta-row" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 16px;">
+      <div class="field-group">
+        <label for="active_color">🟡 Active Word Color</label>
+        <input type="color" id="active_color" name="active_color" value="#FFFFFF"
+          style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:4px 8px; height:45px; width:100%; cursor:pointer;">
+        <span style="font-size:.72rem; color:var(--muted);">Currently highlighted word</span>
+      </div>
+      <div class="field-group">
+        <label for="upcoming_color">⚪ Upcoming Color</label>
+        <input type="color" id="upcoming_color" name="upcoming_color" value="#FF0000"
+          style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:4px 8px; height:45px; width:100%; cursor:pointer;">
+        <span style="font-size:.72rem; color:var(--muted);">Words not yet reached</span>
+      </div>
+      <div class="field-group">
+        <label for="sung_color">🟢 Sung Color</label>
+        <input type="color" id="sung_color" name="sung_color" value="#FFFFFF"
+          style="background:var(--card); border:1px solid var(--border); border-radius:10px; padding:4px 8px; height:45px; width:100%; cursor:pointer;">
+        <span style="font-size:.72rem; color:var(--muted);">Already sung words</span>
+      </div>
+    </div>
+
+    <!-- LRC hint -->
+    <div class="lrc-hint">
+      <strong style="color:var(--text)">Lyrics format:</strong>
+      Use <code>.lrc</code> for timestamps: <code>[01:23.45]Line of lyrics here</code><br>
+      Or upload a plain <code>.txt</code> file — lines will be evenly distributed across the audio.
+    </div>
+
+    <!-- CTA -->
+    <button type="submit" class="btn-process" id="btnProcess">
+      ⚡ Generate Lyrics Video, Instrumental & Thumbnail
+    </button>
+
+  </form>
+
+  <!-- Progress -->
+  <div class="progress-panel" id="progressPanel">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="progress-title">
+        <div class="spinner" id="spinner"></div>
+        <span id="progressTitle">Processing…</span>
+      </div>
+      <button type="button" id="btnCancel" class="btn-cancel" style="background:#ff3c64; color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-family:inherit; display:none;">Stop Process</button>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+    <div class="progress-step" id="progressStep"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-banner" id="errorBanner"></div>
+
+  <!-- Results -->
+  <div class="results-panel" id="resultsPanel">
+    <div class="results-title">✅ &nbsp;All files ready</div>
+    <div class="results-grid" id="resultsGrid"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Drop-zone interactivity ────────────────────────────────────────────────
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  const input = zone.querySelector('input[type="file"]');
+  if (!input) return;
+
+  const fnEl = zone.querySelector('.dz-filename');
+
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (file) {
+      zone.classList.add('filled');
+      if (fnEl) fnEl.textContent = file.name;
+    }
+  });
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length && input) {
+      const dt = new DataTransfer();
+      dt.items.add(e.dataTransfer.files[0]);
+      input.files = dt.files;
+      zone.classList.add('filled');
+      if (fnEl) fnEl.textContent = e.dataTransfer.files[0].name;
+    }
+  });
+});
+
+// ── Form submit ────────────────────────────────────────────────────────────
+const form       = document.getElementById('mainForm');
+const btnProcess = document.getElementById('btnProcess');
+const btnCancel  = document.getElementById('btnCancel');
+const progressPanel = document.getElementById('progressPanel');
+const progressBar   = document.getElementById('progressBar');
+const progressStep  = document.getElementById('progressStep');
+const progressTitle = document.getElementById('progressTitle');
+const spinner       = document.getElementById('spinner');
+const errorBanner   = document.getElementById('errorBanner');
+const resultsPanel  = document.getElementById('resultsPanel');
+const resultsGrid   = document.getElementById('resultsGrid');
+
+let currentJobId = null;
+let pollActive = false;
+
+btnCancel.addEventListener('click', async () => {
+  if (!currentJobId) return;
+  pollActive = false; // Stop polling
+  try {
+    await fetch(`/api/jobs/${currentJobId}`, { method: 'DELETE' });
+  } catch (e) {}
+  
+  showError('Job cancelled by user.');
+  progressPanel.classList.remove('visible');
+  btnCancel.style.display = 'none';
+  currentJobId = null;
+});
+
+function toggleLyricsMode() {
+  const mode = document.querySelector('input[name="lyrics_mode"]:checked').value;
+  document.getElementById('lyrics-file-ui').style.display = mode === 'file' ? 'flex' : 'none';
+  document.getElementById('lyrics-text-ui').style.display = mode === 'text' ? 'block' : 'none';
+  const dzLyrics = document.getElementById('dz-lyrics');
+  if (mode === 'text') {
+    dzLyrics.classList.remove('dragover');
+    dzLyrics.style.cursor = 'default';
+  } else {
+    dzLyrics.style.cursor = 'pointer';
+  }
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errorBanner.classList.remove('visible');
+  resultsPanel.classList.remove('visible');
+
+  const fd = new FormData(form);
+
+  // Don't append empty outro
+  const outroFile = document.getElementById('outro').files[0];
+  if (!outroFile) fd.delete('outro');
+
+  const lyricsMode = document.querySelector('input[name="lyrics_mode"]:checked').value;
+  if (lyricsMode === 'file') {
+    fd.delete('lyrics_text');
+    const lyricsFile = document.getElementById('lyrics').files[0];
+    if (!lyricsFile) {
+      showError('Please upload a lyrics file.');
+      return;
+    }
+  } else {
+    fd.delete('lyrics');
+    if (!fd.get('lyrics_text').trim()) {
+      showError('Please type or paste lyrics.');
+      return;
+    }
+  }
+
+  btnProcess.disabled = true;
+  btnProcess.textContent = '⏳ Processing…';
+  progressPanel.classList.add('visible');
+  setProgress(5, 'Uploading files…');
+
+  try {
+    const res = await fetch('/api/process', { method: 'POST', body: fd });
+    const { job_id, error } = await res.json();
+    if (error || !job_id) throw new Error(error || 'Unknown error');
+    
+    currentJobId = job_id;
+    pollActive = true;
+    btnCancel.style.display = 'block';
+    
+    await pollStatus(job_id);
+  } catch (err) {
+    showError(err.message);
+    btnCancel.style.display = 'none';
+  }
+});
+
+async function pollStatus(jobId) {
+  while (pollActive) {
+    await sleep(1500);
+    if (!pollActive) break;
+    const res = await fetch(`/api/status/${jobId}`);
+    const data = await res.json();
+
+    if (data.status === 'error') {
+      showError(data.error || 'Processing failed');
+      return;
+    }
+    if (data.status === 'complete') {
+      pollActive = false;
+      setProgress(100, 'Done!');
+      spinner.style.display = 'none';
+      progressTitle.textContent = '✅ Processing complete';
+      showResults(jobId, data.files);
+      btnProcess.disabled = false;
+      btnProcess.textContent = '⚡ Generate Again';
+      btnCancel.style.display = 'none';
+      currentJobId = null;
+      return;
+    }
+    setProgress(data.progress || 0, data.step || 'Working…');
+  }
+}
+
+function setProgress(pct, step) {
+  progressBar.style.width = pct + '%';
+  progressStep.textContent = step;
+}
+
+function showResults(jobId, fileKeys) {
+  resultsPanel.classList.add('visible');
+  const meta = {
+    lyrics_video:  { icon:'🎬', label:'Lyrics Video',      hint:'MP4 · 1920×1080 · H.264' },
+    instrumental:  { icon:'🎵', label:'Instrumental Video', hint:'MP4 · 1920×1080 · H.264' },
+    thumbnail:     { icon:'🖼', label:'YouTube Thumbnail',  hint:'JPEG · 1280×720' },
+    alignment_json:{ icon:'📄', label:'Alignment Data', hint:'JSON · Word timestamps' },
+    lyrics_srt:    { icon:'📝', label:'SRT Subtitles', hint:'SubRip format' },
+    lyrics_lrc:    { icon:'📝', label:'LRC Lyrics', hint:'Synced Lyrics file' },
+  };
+  resultsGrid.innerHTML = fileKeys.map(key => {
+    const m = meta[key] || { icon:'📁', label:key, hint:'' };
+    const fileUrl = `/api/download/${jobId}/${key}`;
+    let previewHtml = '';
+    if (key === 'thumbnail') {
+      previewHtml = `<img src="${fileUrl}" style="width: 100%; border-radius: 8px; margin-top: 4px; border: 1px solid var(--border);" alt="Thumbnail Preview">`;
+    } else if (key === 'lyrics_video' || key === 'instrumental') {
+      previewHtml = `<video controls src="${fileUrl}" style="width: 100%; border-radius: 8px; margin-top: 4px; border: 1px solid var(--border);"></video>`;
+    }
+    
+    return `
+      <div class="result-card" style="height: 100%;">
+        <div class="result-icon">${m.icon}</div>
+        <div class="result-name">${m.label}</div>
+        <div class="result-meta">${m.hint}</div>
+        ${previewHtml}
+        <a class="btn-dl" href="${fileUrl}" download style="margin-top: auto;">
+          ⬇ Download
+        </a>
+      </div>`;
+  }).join('');
+
+  // Add the Edit button card
+  resultsGrid.innerHTML += `
+      <div class="result-card" style="height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; border-color: var(--accent2);">
+        <div class="result-icon">✏️</div>
+        <div class="result-name">Lyric Editor</div>
+        <div class="result-meta">Fix timings & reposition lines</div>
+        <a class="btn-dl" href="/editor?job_id=${jobId}" target="_blank" style="margin-top: auto; background: var(--accent2); color: #fff; border-color: var(--accent2);">
+          Open Editor in New Tab
+        </a>
+      </div>`;
+}
+
+function showError(msg) {
+  progressPanel.classList.remove('visible');
+  errorBanner.textContent = '⚠ ' + msg;
+  errorBanner.classList.add('visible');
+  btnProcess.disabled = false;
+  btnProcess.textContent = '⚡ Generate Lyrics Video, Instrumental & Thumbnail';
+  spinner.style.display = '';
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
